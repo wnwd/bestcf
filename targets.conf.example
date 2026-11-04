@@ -1,0 +1,13 @@
+# bestcf distribution targets — one line per record:
+#   <record FQDN>  <its Cloudflare zone name>  <group>
+# Records in the same group always share one IP (sticky assignment).
+#
+# Copy this file to "targets.conf", fill in your real domains, and keep the
+# real file OUT of git and out of the image: it is a map of your fleet.
+# The container reads it from the bind mount in docker-compose.yml.
+best.node-a.example.com   node-a.example.com   g1
+best.node-b.example.com   node-b.example.com   g1
+best.node-c.example.com   node-c.example.com   g2
+best.node-d.example.com   node-d.example.com   g2
+best.node-e.example.com   node-e.example.com   g3
+best.node-f.example.com   node-f.example.com   g3

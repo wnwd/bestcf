@@ -1,0 +1,15 @@
+services:
+  bestcf:
+    # Published multi-arch image (amd64 + arm64). On the N1 this just pulls.
+    image: wnwd/bestcf:latest
+    container_name: bestcf
+    restart: unless-stopped
+    env_file: .env
+    volumes:
+      # Distribution targets (record / zone / group). REQUIRED: the real
+      # targets.conf lives only on this host — it is not in the image
+      # (it names the fleet's domains). Start from targets.conf.example.
+      - ./targets.conf:/app/targets.conf:ro
+    # cfst measures the direct outbound line of wherever this container runs.
+    # Keep it on a plain outbound path: no proxy env vars, no TUN tricks.
+    # Default bridge NAT is fine — the measurement vantage point is the host's line.

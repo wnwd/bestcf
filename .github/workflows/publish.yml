@@ -1,0 +1,60 @@
+name: Publish Docker image
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  workflow_dispatch:
+
+env:
+  # Docker Hub repository to publish. Override via repo variable DOCKERHUB_IMAGE.
+  IMAGE: ${{ vars.DOCKERHUB_IMAGE || 'wnwd/bestcf' }}
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # The cfst version pinned in the CFST_VERSION file drives both the
+      # build-arg (which cfst goes into the image) and a version tag.
+      - id: cfst
+        run: echo "version=$(tr -d '[:space:]' < CFST_VERSION)" >> "$GITHUB_OUTPUT"
+
+      - uses: docker/setup-qemu-action@v3
+
+      - uses: docker/setup-buildx-action@v3
+
+      # Repo secrets to configure once:
+      #   DOCKERHUB_USERNAME  Your PERSONAL Docker Hub username. Organizations
+      #                       cannot log in — using the org name here always
+      #                       fails with "incorrect username or password".
+      #                       The user must be a member of the org that owns
+      #                       the image repository (e.g. wnwd).
+      #   DOCKERHUB_TOKEN     Access token (Read & Write) created under that
+      #                       personal account: hub.docker.com -> Account
+      #                       settings -> Security -> New Access Token.
+      - uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.IMAGE }}
+          tags: |
+            type=raw,value=latest,enable={{is_default_branch}}
+            type=raw,value=${{ steps.cfst.outputs.version }}
+            type=ref,event=tag
+            type=sha,format=short
+
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          build-args: |
+            CFST_VERSION=${{ steps.cfst.outputs.version }}

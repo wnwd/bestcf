@@ -1,0 +1,4 @@
+.env
+result.csv
+# The real targets.conf names the fleet's domains — host-only, never commit.
+targets.conf

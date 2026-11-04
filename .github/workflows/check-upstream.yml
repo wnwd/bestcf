@@ -1,0 +1,47 @@
+name: Check upstream cfst release
+
+# Weekly: if XIU2/CloudflareSpeedTest released a new version, bump the
+# CFST_VERSION file, commit it, and dispatch the publish workflow so a fresh
+# image lands on Docker Hub without any manual step.
+on:
+  schedule:
+    - cron: "17 4 * * 1" # Mondays 04:17 UTC (12:17 Beijing)
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  actions: write
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - id: up
+        run: |
+          tag="$(curl -fsSL https://api.github.com/repos/XIU2/CloudflareSpeedTest/releases/latest | jq -r .tag_name)"
+          cur="$(tr -d '[:space:]' < CFST_VERSION)"
+          echo "upstream=$tag current=$cur"
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          if [ -n "$tag" ] && [ "$tag" != "null" ] && [ "$tag" != "$cur" ]; then
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - if: steps.up.outputs.changed == 'true'
+        run: |
+          echo "${{ steps.up.outputs.tag }}" > CFST_VERSION
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add CFST_VERSION
+          git commit -m "chore: bump cfst to ${{ steps.up.outputs.tag }}"
+          git push
+
+      # A push made with GITHUB_TOKEN does not trigger other workflows,
+      # so dispatch the publish workflow explicitly.
+      - if: steps.up.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run publish.yml
